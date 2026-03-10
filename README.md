@@ -507,9 +507,53 @@ This eliminates the class of bug where schema and TypeScript type drift apart.
 - **All APIs are mocked** — `setTimeout`-based stubs provide zero coverage of real HTTP error paths, token expiry, or race conditions.
 - **No E2E tests** — unit and component tests exist, but there are no Playwright or Cypress tests verifying the full MFE composition (actual remote loading, cross-remote navigation, `RemoteBoundary` recovery in a real browser).
 - **No cross-remote auth guard** — the host does not enforce authentication at the routing layer; a carelessly added remote can expose protected pages unauthenticated.
-- **Duplicated theme configuration** — `tokens.ts`, `recipes.ts`, and `AppThemeProvider.tsx` are copy-pasted across all three apps. A brand update requires three separate edits with no synchronisation mechanism.
+- **Duplicated theme configuration — no shared `@mf-system/ui-kit` package** — `tokens.ts`, `recipes.ts`, and `AppThemeProvider.tsx` are copy-pasted verbatim across all three apps (`host-shell`, `remote-auth`, `remote-dashboard`). A brand update (change the primary blue, swap a font) requires three separate file edits with no tooling to enforce they stay in sync. The fix is a private npm package — `@mf-system/ui-kit` — that each app installs as a versioned dependency. See [detail below](#missing-mf-systemui-kit-package).
 - **Zustand stores are remote-scoped** — there is no mechanism for the shell or a sibling remote to react to another remote's store changes (e.g., dashboard cannot redirect to `/auth/login` on logout).
 - **Manual type generation** — `@mf-types/` declarations must be kept current manually; a stale declaration silently passes type-check while the runtime breaks.
+
+### Missing `@mf-system/ui-kit` package
+
+The root cause of the duplicated-theme weakness: there is no single source of truth for design tokens, Chakra recipes, or the `AppThemeProvider`. Every app maintains its own copy and any drift goes undetected until something looks visually different in production.
+
+**What the package would contain**
+
+```
+packages/ui-kit/               # published as @mf-system/ui-kit
+  src/
+    tokens.ts                  ← one copy of colours, typography scale
+    recipes.ts                 ← buttonRecipe, cardSlotRecipe
+    system.ts                  ← createSystem(defaultConfig, config) export
+    AppThemeProvider.tsx        ← <ChakraProvider value={system}>
+    index.ts                   ← re-exports everything
+  package.json                 # "name": "@mf-system/ui-kit", peerDeps: chakra, react
+  tsconfig.json
+  tsup.config.ts               # builds ESM + CJS + .d.ts
+```
+
+**How each app would use it**
+
+```bash
+# in each app's directory
+bun add @mf-system/ui-kit
+```
+
+```ts
+// host-shell / remote-auth / remote-dashboard
+import { AppThemeProvider, system } from "@mf-system/ui-kit";
+```
+
+`@chakra-ui/react` stays a peer dependency so Module Federation's singleton negotiation still works — a single Chakra instance is loaded at runtime, the same as today. The ui-kit only ships the config and theme object, not a second copy of Chakra itself.
+
+**Why it matters at scale**
+
+| Without `@mf-system/ui-kit`                            | With `@mf-system/ui-kit`                                     |
+| ------------------------------------------------------ | ------------------------------------------------------------ |
+| Rebrand touches 3 files across 3 repos                 | Bump one package version, CI propagates the update           |
+| Drift is invisible — TypeScript won't catch it         | Consumers always import the same exported constant           |
+| New remotes copy-paste again and the problem compounds | New remotes `bun add @mf-system/ui-kit` and get consistency  |
+| No changelog for visual changes                        | Semver + CHANGELOG makes breaking token changes explicit      |
+
+**Current state:** not implemented. `tokens.ts`, `recipes.ts`, and `AppThemeProvider.tsx` each exist as identical files in `host-shell/src/theme/`, `remote-auth/src/theme/`, and `remote-dashboard/src/theme/`. This is the highest-priority non-API weakness to address before the project scales to additional remotes.
 
 ---
 
