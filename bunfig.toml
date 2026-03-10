@@ -1,0 +1,22 @@
+# ─── Bun install configuration ────────────────────────────────────────────────
+[install]
+# Cache packages globally to speed up installs across projects
+cache = true
+# Automatically install peer dependencies
+peer = true
+# Freeze the lockfile in CI environments (set via BUN_LOCKFILE_FROZEN=1)
+frozenLockfile = false
+# Prefer exact versions to match the MF singleton version contract
+exact = true
+
+[install.scopes]
+# Use the default npm registry for all scopes
+
+# ─── Test runner configuration ────────────────────────────────────────────────
+[test]
+# Preload setup files before each test suite
+preload = ["./src/test-setup.ts"]
+# Timeout per test in milliseconds
+timeout = 10000
+# Enable coverage reporting
+coverage = false

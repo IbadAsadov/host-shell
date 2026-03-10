@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+.rspack/
+
+# Module Federation auto-generated types
+@mf-types/
+
+# Bun
+*.bun
+.bun-repl-history
+~/.bun/install/cache
+
+# Environment variables
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+coverage/
