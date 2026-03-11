@@ -16,6 +16,8 @@ The host loads each remote's `remoteEntry.js` at runtime via Module Federation. 
 
 Shared libraries (React, React Router, Chakra UI, Zustand) are declared as singletons so the MF runtime negotiates one copy across all three apps. Two copies of React in the same browser tab is a bad time.
 
+Each remote (`remote-auth`, `remote-dashboard`) wraps its exposed route component with its own `AppThemeProvider`. This means remotes own their design tokens — changing `tokens.ts` in a remote takes effect regardless of where it is mounted. To avoid CSS variable collisions each app uses a unique `cssVarsPrefix`: `"mf"` for the host, `"auth"` for remote-auth, and `"dashboard"` for remote-dashboard.
+
 ---
 
 ## Why MFE and not just a monorepo?
@@ -546,12 +548,12 @@ import { AppThemeProvider, system } from "@mf-system/ui-kit";
 
 **Why it matters at scale**
 
-| Without `@mf-system/ui-kit`                            | With `@mf-system/ui-kit`                                     |
-| ------------------------------------------------------ | ------------------------------------------------------------ |
-| Rebrand touches 3 files across 3 repos                 | Bump one package version, CI propagates the update           |
-| Drift is invisible — TypeScript won't catch it         | Consumers always import the same exported constant           |
-| New remotes copy-paste again and the problem compounds | New remotes `bun add @mf-system/ui-kit` and get consistency  |
-| No changelog for visual changes                        | Semver + CHANGELOG makes breaking token changes explicit      |
+| Without `@mf-system/ui-kit`                            | With `@mf-system/ui-kit`                                    |
+| ------------------------------------------------------ | ----------------------------------------------------------- |
+| Rebrand touches 3 files across 3 repos                 | Bump one package version, CI propagates the update          |
+| Drift is invisible — TypeScript won't catch it         | Consumers always import the same exported constant          |
+| New remotes copy-paste again and the problem compounds | New remotes `bun add @mf-system/ui-kit` and get consistency |
+| No changelog for visual changes                        | Semver + CHANGELOG makes breaking token changes explicit    |
 
 **Current state:** not implemented. `tokens.ts`, `recipes.ts`, and `AppThemeProvider.tsx` each exist as identical files in `host-shell/src/theme/`, `remote-auth/src/theme/`, and `remote-dashboard/src/theme/`. This is the highest-priority non-API weakness to address before the project scales to additional remotes.
 
@@ -596,3 +598,9 @@ bun run test:coverage    # coverage report (V8)
 bun run type-check       # tsc --noEmit
 bun run check:fix        # biome lint + format (write)
 ```
+
+## Notes
+
+- `RemoteBoundary` wraps each remote — if a remote is unreachable the user sees a recovery card, not a blank screen.
+- Each app has its own `cssVarsPrefix`: `"mf"` (host), `"auth"` (remote-auth), `"dashboard"` (remote-dashboard) to prevent CSS variable collisions.
+- `@mf-types/` has generated `.d.ts` declarations for remote modules — regenerate when a remote changes its public interface.
